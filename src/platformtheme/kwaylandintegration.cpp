@@ -29,12 +29,10 @@
 #include <KWayland/Client/server_decoration.h>
 #include <KWayland/Client/server_decoration_palette.h>
 #include <KWayland/Client/appmenu.h>
-#include <KWindowEffects>
 
 using namespace KWayland::Client;
 
 static const QByteArray s_schemePropertyName = QByteArrayLiteral("KDE_COLOR_SCHEME_PATH");
-static const QByteArray s_blurBehindPropertyName = QByteArrayLiteral("ENABLE_BLUR_BEHIND_HINT");
 
 KWaylandIntegration::KWaylandIntegration()
     : QObject()
@@ -100,10 +98,6 @@ void KWaylandIntegration::shellSurfaceCreated(QWindow *w)
     // set colorscheme hint
     if (qApp->property(s_schemePropertyName.constData()).isValid()) {
         installColorScheme(w);
-    }
-    const auto blurBehindProperty = w->property(s_blurBehindPropertyName.constData());
-    if (blurBehindProperty.isValid()) {
-        KWindowEffects::enableBlurBehind(w, blurBehindProperty.toBool());
     }
     // create deco
     Surface *s = Surface::fromWindow(w);
