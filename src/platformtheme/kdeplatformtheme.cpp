@@ -63,12 +63,12 @@ KdePlatformTheme::KdePlatformTheme()
 
     // explicitly not KWindowSystem::isPlatformWayland to not include the kwin process
     if (QGuiApplication::platformName() == QLatin1String("wayland")) {
-        m_kwaylandIntegration.reset(new KWaylandIntegration());
+        m_kwaylandIntegration.reset(new KWaylandIntegration(this));
     }
 
 #if HAVE_X11
     if (KWindowSystem::isPlatformX11()) {
-        m_x11Integration.reset(new X11Integration());
+        m_x11Integration.reset(new X11Integration(this));
         m_x11Integration->init();
     }
 #endif
@@ -346,7 +346,7 @@ QPlatformSystemTrayIcon *KdePlatformTheme::createPlatformSystemTrayIcon() const
 QPlatformMenuBar *KdePlatformTheme::createPlatformMenuBar() const
 {
     if (isDBusGlobalMenuAvailable()) {
-        auto *menu = new QDBusMenuBar();
+        auto *menu = new QDBusMenuBar(const_cast<KdePlatformTheme *>(this));
 
         QObject::connect(menu, &QDBusMenuBar::windowChanged, menu, [this, menu](QWindow *newWindow, QWindow *oldWindow) {
             const QString &serviceName = QDBusConnection::sessionBus().baseService();
@@ -403,4 +403,62 @@ bool KdePlatformTheme::useXdgDesktopPortal()
 {
     static bool usePortal = qEnvironmentVariableIntValue("PLASMA_INTEGRATION_USE_PORTAL") == 1;
     return usePortal;
+}
+
+void KdePlatformTheme::globalMenuBarExistsNow()
+{
+    const QString &serviceName = QDBusConnection::sessionBus().baseService();
+    const QString &objectPath = QDBusMenuBar::globalMenuBar()->objectPath();
+
+    for (auto *window : qApp->allWindows()) {
+        if (QDBusMenuBar::menuBarForWindow(window))
+            continue;
+
+        if (m_x11Integration) {
+            m_x11Integration->setWindowProperty(window, s_x11AppMenuServiceNamePropertyName, serviceName.toUtf8());
+            m_x11Integration->setWindowProperty(window, s_x11AppMenuObjectPathPropertyName, objectPath.toUtf8());
+        }
+
+        if (m_kwaylandIntegration) {
+            m_kwaylandIntegration->setAppMenu(window, serviceName, objectPath);
+        }
+    }
+}
+
+void KdePlatformTheme::windowCreated(QWindow *window)
+{
+    if (!QDBusMenuBar::globalMenuBar())
+        return;
+
+    if (QDBusMenuBar::menuBarForWindow(window))
+        return;
+
+    const QString &serviceName = QDBusConnection::sessionBus().baseService();
+    const QString &objectPath = QDBusMenuBar::globalMenuBar()->objectPath();
+
+    if (m_x11Integration) {
+        m_x11Integration->setWindowProperty(window, s_x11AppMenuServiceNamePropertyName, serviceName.toUtf8());
+        m_x11Integration->setWindowProperty(window, s_x11AppMenuObjectPathPropertyName, objectPath.toUtf8());
+    }
+
+    if (m_kwaylandIntegration) {
+        m_kwaylandIntegration->setAppMenu(window, serviceName, objectPath);
+    }
+}
+
+void KdePlatformTheme::globalMenuBarNoLongerExists()
+{
+    for (auto *window : qApp->allWindows()) {
+        if (QDBusMenuBar::menuBarForWindow(window))
+            continue;
+
+        if (m_x11Integration) {
+            m_x11Integration->setWindowProperty(window, s_x11AppMenuServiceNamePropertyName, {});
+            m_x11Integration->setWindowProperty(window, s_x11AppMenuObjectPathPropertyName, {});
+        }
+
+        if (m_kwaylandIntegration) {
+            m_kwaylandIntegration->setAppMenu(window, QString(), QString());
+        }
+    }
 }

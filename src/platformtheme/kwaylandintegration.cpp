@@ -58,10 +58,11 @@ using ServerSideDecorationPalette = QtWayland::org_kde_kwin_server_decoration_pa
 Q_DECLARE_METATYPE(AppMenu *);
 Q_DECLARE_METATYPE(ServerSideDecorationPalette *);
 
-KWaylandIntegration::KWaylandIntegration()
+KWaylandIntegration::KWaylandIntegration(KdePlatformTheme *platformTheme)
     : QObject()
     , m_appMenuManager(new AppMenuManager)
     , m_paletteManager(new ServerSideDecorationPaletteManager)
+    , m_platformTheme(platformTheme)
 {
     QCoreApplication::instance()->installEventFilter(this);
 }
@@ -110,6 +111,15 @@ bool KWaylandIntegration::eventFilter(QObject *watched, QEvent *event)
         for (QWindow *w : topLevelWindows) {
             if (isRelevantTopLevel(w)) {
                 installColorScheme(w);
+            }
+        }
+    } else if (event->type() == QEvent::PlatformSurface) {
+        if (QWindow *w = qobject_cast<QWindow *>(watched)) {
+            QPlatformSurfaceEvent *pe = static_cast<QPlatformSurfaceEvent *>(event);
+            if (!w->flags().testFlag(Qt::ForeignWindow)) {
+                if (pe->surfaceEventType() == QPlatformSurfaceEvent::SurfaceCreated) {
+                    m_platformTheme->windowCreated(w);
+                }
             }
         }
     }

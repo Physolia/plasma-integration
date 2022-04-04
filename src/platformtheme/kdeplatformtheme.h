@@ -42,6 +42,10 @@ public:
 
     QPlatformMenuBar *createPlatformMenuBar() const override;
 
+    void globalMenuBarExistsNow();
+    void globalMenuBarNoLongerExists();
+    void windowCreated(QWindow *window);
+
 private:
     void loadSettings();
     void setQtQuickControlsTheme();
